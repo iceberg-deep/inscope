@@ -10,6 +10,8 @@ from pathlib import Path
 from typing import Iterable, Optional, Union
 from urllib.parse import urlparse
 
+from . import audit as _audit
+
 __version__ = "0.1.0"
 __all__ = ["Scope", "ScopeEntry", "parse_entry", "matches"]
 
@@ -31,30 +33,58 @@ class ScopeEntry:
 class Scope:
     """A parsed scope definition with in-scope / out-of-scope checks."""
 
-    def __init__(self, entries: Optional[list[ScopeEntry]] = None):
+    def __init__(
+        self,
+        entries: Optional[list[ScopeEntry]] = None,
+        *,
+        audit: bool = True,
+        source_hash: Optional[str] = None,
+    ):
         self.entries: list[ScopeEntry] = entries or []
+        self.audit: bool = audit
+        self.source_hash: Optional[str] = source_hash
 
     @classmethod
-    def from_file(cls, path: Union[str, Path]) -> "Scope":
+    def from_file(cls, path: Union[str, Path], *, audit: bool = True) -> "Scope":
         path = Path(path)
-        return cls.from_lines(path.read_text().splitlines())
+        data = path.read_bytes()
+        source_hash = _audit.hash_content(data)
+        return cls.from_lines(
+            data.decode().splitlines(),
+            audit=audit,
+            source_hash=source_hash,
+        )
 
     @classmethod
-    def from_lines(cls, lines: Iterable[str]) -> "Scope":
+    def from_lines(
+        cls,
+        lines: Iterable[str],
+        *,
+        audit: bool = True,
+        source_hash: Optional[str] = None,
+    ) -> "Scope":
+        lines_list = list(lines)
         entries: list[ScopeEntry] = []
-        for line in lines:
+        for line in lines_list:
             line = line.strip()
             if not line or line.startswith("#"):
                 continue
             entry = parse_entry(line)
             if entry is not None:
                 entries.append(entry)
-        return cls(entries)
+        if source_hash is None:
+            source_hash = _audit.hash_content("\n".join(lines_list).encode())
+        return cls(entries, audit=audit, source_hash=source_hash)
 
     def is_in_scope(self, target: str) -> bool:
         """Return True if target is in scope and not excluded."""
-        target = _normalize_target(target)
-        # Exclusions take precedence
+        normalized = _normalize_target(target)
+        result = self._evaluate(normalized)
+        if self.audit:
+            _audit.record(target, result, self.source_hash)
+        return result
+
+    def _evaluate(self, target: str) -> bool:
         for entry in self.entries:
             if entry.excluded and matches(entry, target):
                 return False
