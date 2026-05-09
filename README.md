@@ -47,6 +47,27 @@ cat targets.txt | inscope filter --scope scope.txt
 subfinder -d example.com | inscope filter --scope scope.txt | httpx
 ```
 
+### JSON output
+
+Pass `--json` to any subcommand to get machine-readable output on stdout. Exit codes are unchanged (`check` returns `0` if in scope, `1` if out, `2` for errors; the others return `0`).
+
+```bash
+$ inscope check --scope scope.txt --target api.example.com --json
+{"target": "api.example.com", "in_scope": true, "matched_entry": {"kind": "wildcard", "value": "example.com", "excluded": false}, "scope_hash": "9f86d0..."}
+
+$ inscope normalize --scope scope.txt --json
+{"included": [{"kind": "wildcard", "value": "example.com", "raw": "*.example.com"}, ...], "excluded": [...], "scope_hash": "9f86d0..."}
+
+# filter emits JSON Lines (one object per input target)
+$ printf 'api.example.com\nauth.example.com\nevil.com\n' | inscope filter --scope scope.txt --json
+{"target": "api.example.com", "in_scope": true}
+{"target": "auth.example.com", "in_scope": false}
+{"target": "evil.com", "in_scope": false}
+
+# pipe into jq for ad-hoc reports
+$ cat targets.txt | inscope filter --scope scope.txt --json | jq -r 'select(.in_scope) | .target'
+```
+
 ## Scope file format
 
 Plain text, one entry per line. Lines starting with `#` are comments. Lines starting with `!` are exclusions.

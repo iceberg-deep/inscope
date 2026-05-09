@@ -78,20 +78,25 @@ class Scope:
 
     def is_in_scope(self, target: str) -> bool:
         """Return True if target is in scope and not excluded."""
+        return self.evaluate(target)[0]
+
+    def evaluate(self, target: str) -> tuple[bool, Optional[ScopeEntry]]:
+        """Return (in_scope, matched_entry). matched_entry is the first excluded
+        entry that matched, else the first included entry that matched, else None."""
         normalized = _normalize_target(target)
-        result = self._evaluate(normalized)
+        result, matched = self._evaluate(normalized)
         if self.audit:
             _audit.record(target, result, self.source_hash)
-        return result
+        return result, matched
 
-    def _evaluate(self, target: str) -> bool:
+    def _evaluate(self, target: str) -> tuple[bool, Optional[ScopeEntry]]:
         for entry in self.entries:
             if entry.excluded and matches(entry, target):
-                return False
+                return False, entry
         for entry in self.entries:
             if not entry.excluded and matches(entry, target):
-                return True
-        return False
+                return True, entry
+        return False, None
 
     def filter(self, targets: Iterable[str]) -> list[str]:
         """Return only the targets that are in scope."""

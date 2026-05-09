@@ -2,10 +2,24 @@
 from __future__ import annotations
 
 import argparse
+import json
 import sys
 from pathlib import Path
 
-from . import Scope, __version__
+from . import Scope, ScopeEntry, __version__
+
+
+def _entry_match_dict(entry: ScopeEntry) -> dict:
+    return {"kind": entry.kind, "value": entry.value, "excluded": entry.excluded}
+
+
+def _entry_full_dict(entry: ScopeEntry) -> dict:
+    return {"kind": entry.kind, "value": entry.value, "raw": entry.raw}
+
+
+def _emit_json(payload: dict) -> None:
+    json.dump(payload, sys.stdout)
+    sys.stdout.write("\n")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -20,13 +34,16 @@ def main(argv: list[str] | None = None) -> int:
     p_check.add_argument("--scope", required=True, help="Path to scope file.")
     p_check.add_argument("--target", required=True, help="Target to validate (domain, IP, or URL).")
     p_check.add_argument("--no-audit", action="store_true", help="Disable audit logging for this check.")
+    p_check.add_argument("--json", action="store_true", help="Emit a single JSON object to stdout instead of human-readable output.")
 
     p_norm = sub.add_parser("normalize", help="Print the parsed and normalized scope.")
     p_norm.add_argument("--scope", required=True, help="Path to scope file.")
+    p_norm.add_argument("--json", action="store_true", help="Emit a single JSON object to stdout instead of human-readable output.")
 
     p_filter = sub.add_parser("filter", help="Read targets from stdin, write only in-scope ones to stdout.")
     p_filter.add_argument("--scope", required=True, help="Path to scope file.")
     p_filter.add_argument("--no-audit", action="store_true", help="Disable audit logging for this run.")
+    p_filter.add_argument("--json", action="store_true", help="Emit one JSON object per input target to stdout (jsonl) instead of in-scope-only lines.")
 
     args = parser.parse_args(argv)
 
@@ -37,28 +54,49 @@ def main(argv: list[str] | None = None) -> int:
 
     audit_enabled = not getattr(args, "no_audit", False)
     scope = Scope.from_file(scope_path, audit=audit_enabled)
+    json_mode = getattr(args, "json", False)
 
     if args.cmd == "check":
-        ok = scope.is_in_scope(args.target)
-        if ok:
-            print(f"[+] {args.target} is IN scope")
-            return 0
-        print(f"[-] {args.target} is OUT of scope")
-        return 1
+        in_scope, matched = scope.evaluate(args.target)
+        if json_mode:
+            _emit_json({
+                "target": args.target,
+                "in_scope": in_scope,
+                "matched_entry": _entry_match_dict(matched) if matched is not None else None,
+                "scope_hash": scope.source_hash,
+            })
+        else:
+            if in_scope:
+                print(f"[+] {args.target} is IN scope")
+            else:
+                print(f"[-] {args.target} is OUT of scope")
+        return 0 if in_scope else 1
 
     if args.cmd == "normalize":
-        print("# Included")
-        for e in scope.included():
-            print(f"  {e}")
-        print("# Excluded")
-        for e in scope.excluded():
-            print(f"  {e}")
+        if json_mode:
+            _emit_json({
+                "included": [_entry_full_dict(e) for e in scope.included()],
+                "excluded": [_entry_full_dict(e) for e in scope.excluded()],
+                "scope_hash": scope.source_hash,
+            })
+        else:
+            print("# Included")
+            for e in scope.included():
+                print(f"  {e}")
+            print("# Excluded")
+            for e in scope.excluded():
+                print(f"  {e}")
         return 0
 
     if args.cmd == "filter":
         for line in sys.stdin:
             target = line.strip()
-            if target and scope.is_in_scope(target):
+            if not target:
+                continue
+            if json_mode:
+                in_scope = scope.is_in_scope(target)
+                _emit_json({"target": target, "in_scope": in_scope})
+            elif scope.is_in_scope(target):
                 print(target)
         return 0
 
