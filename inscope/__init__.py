@@ -12,7 +12,7 @@ from urllib.parse import urlparse
 
 from . import audit as _audit
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = ["Scope", "ScopeEntry", "parse_entry", "matches"]
 
 
