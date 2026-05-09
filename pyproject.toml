@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "inscope"
+version = "0.1.0"
+description = "Scope parsing and creep elimination for pentests and bug bounty engagements."
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "Justen" }
+]
+requires-python = ">=3.9"
+keywords = ["security", "pentest", "bugbounty", "scope", "recon"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+]
+
+[project.urls]
+Homepage = "https://github.com/iceberg-deep/inscope"
+Issues = "https://github.com/iceberg-deep/inscope/issues"
+
+[project.scripts]
+inscope = "inscope.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]
+
+[tool.setuptools.packages.find]
+include = ["inscope*"]
+exclude = ["tests*", "examples*"]

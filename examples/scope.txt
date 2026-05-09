@@ -1,0 +1,22 @@
+# Sample scope file - demonstrates all supported entry types.
+# Use this as a template for real engagements.
+
+# --- In scope ---
+*.example.com
+example.com
+api.example.org
+https://app.example.com
+
+# Internal range
+10.0.0.0/16
+
+# Specific host
+192.168.1.10
+
+# --- Out of scope ---
+# Auth and admin paths often excluded to avoid lockouts
+!auth.example.com
+!admin.example.com
+
+# Production database subnet
+!10.0.99.0/24
