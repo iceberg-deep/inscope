@@ -2,7 +2,7 @@
 
 > Scope parsing and creep elimination for pentests and bug bounty engagements.
 
-**v0.2.0 is out** — every CLI subcommand now speaks `--json` (jsonl from `filter`), so you can pipe scope decisions straight into `jq` and the rest of your tooling. [Release notes →](https://github.com/iceberg-deep/inscope/releases/tag/v0.2.0)
+**v0.3.0 is out** — `inscope serve` runs a stdlib-only HTTP API (`/healthz`, `/scope`, `/check`, `/filter`) so multiple tools and teammates can query a single source of truth. [Release notes →](https://github.com/iceberg-deep/inscope/releases/tag/v0.3.0)
 
 Every engagement starts with a scope document. Most live in a Slack message, a PDF, a copy-paste from a program page, or an email thread that got forwarded twice. `inscope` normalizes that mess into something machine-readable, then gives you a guard rail against drifting out of scope mid-test.
 
