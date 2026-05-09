@@ -45,6 +45,14 @@ def main(argv: list[str] | None = None) -> int:
     p_filter.add_argument("--no-audit", action="store_true", help="Disable audit logging for this run.")
     p_filter.add_argument("--json", action="store_true", help="Emit one JSON object per input target to stdout (jsonl) instead of in-scope-only lines.")
 
+    p_serve = sub.add_parser("serve", help="Run an HTTP API answering scope questions.")
+    p_serve.add_argument("--scope", required=True, help="Path to scope file.")
+    p_serve.add_argument("--host", default="127.0.0.1", help="Host to bind (default 127.0.0.1).")
+    p_serve.add_argument("--port", type=int, default=8765, help="Port to bind (default 8765).")
+    p_serve.add_argument("--reload", action="store_true", help="Re-read the scope file on every request (development).")
+    p_serve.add_argument("--token", default=None, help="Optional bearer token. If set, required for all endpoints except /healthz.")
+    p_serve.add_argument("--no-audit", action="store_true", help="Disable audit logging for this run.")
+
     args = parser.parse_args(argv)
 
     scope_path = Path(args.scope)
@@ -53,6 +61,18 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     audit_enabled = not getattr(args, "no_audit", False)
+
+    if args.cmd == "serve":
+        from .server import run_server
+        return run_server(
+            scope_path,
+            host=args.host,
+            port=args.port,
+            audit=audit_enabled,
+            reload=args.reload,
+            token=args.token,
+        )
+
     scope = Scope.from_file(scope_path, audit=audit_enabled)
     json_mode = getattr(args, "json", False)
 

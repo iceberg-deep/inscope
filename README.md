@@ -70,6 +70,46 @@ $ printf 'api.example.com\nauth.example.com\nevil.com\n' | inscope filter --scop
 $ cat targets.txt | inscope filter --scope scope.txt --json | jq -r 'select(.in_scope) | .target'
 ```
 
+### Server mode
+
+Run a small HTTP API around a scope file — useful when multiple tools or teammates need to ask "is this in scope?" against a single source of truth.
+
+```bash
+inscope serve --scope scope.txt
+# [+] inscope serve listening on http://127.0.0.1:8765 (scope=scope.txt)
+```
+
+Endpoints:
+
+| Method | Path       | Body                          | Response                                                                             |
+| ------ | ---------- | ----------------------------- | ------------------------------------------------------------------------------------ |
+| GET    | `/healthz` | —                             | `{"status": "ok", "scope_hash": "...", "version": "..."}`                            |
+| GET    | `/scope`   | —                             | same shape as `inscope normalize --json`                                             |
+| POST   | `/check`   | `{"target": "api.example.com"}` | same shape as `inscope check --json`                                                |
+| POST   | `/filter`  | `{"targets": ["a", "b", ...]}`  | JSON Lines, one `{"target", "in_scope"}` per input target                          |
+
+```bash
+curl -s http://127.0.0.1:8765/healthz
+curl -s http://127.0.0.1:8765/scope | jq
+curl -s -XPOST http://127.0.0.1:8765/check  -d '{"target":"api.example.com"}'
+curl -s -XPOST http://127.0.0.1:8765/filter -d '{"targets":["api.example.com","auth.example.com","evil.com"]}'
+```
+
+Flags:
+
+- `--host` / `--port` — bind address (default `127.0.0.1:8765`).
+- `--reload` — re-read the scope file on every request (development only).
+- `--token <value>` — require `Authorization: Bearer <value>` on all endpoints except `/healthz`. Missing header → `401`, wrong value → `403`.
+- `--no-audit` — disable audit logging for this run. By default every `/check` call and every target inside `/filter` writes to the audit log just like the CLI does.
+
+```bash
+# with auth
+inscope serve --scope scope.txt --token "$INSCOPE_TOKEN"
+curl -s -H "Authorization: Bearer $INSCOPE_TOKEN" http://127.0.0.1:8765/scope
+```
+
+> **Local-only by default; not hardened for public internet exposure.** The server binds to `127.0.0.1`, has no rate limiting, and `--token` is a thin shared-secret check over plaintext HTTP. If you need to expose it beyond localhost, put it behind a reverse proxy that terminates TLS, enforces auth, and applies rate limits — and revisit whether the bearer token is sufficient for your threat model.
+
 ## Scope file format
 
 Plain text, one entry per line. Lines starting with `#` are comments. Lines starting with `!` are exclusions.
